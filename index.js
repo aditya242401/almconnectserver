@@ -13,7 +13,7 @@ const app = express();
 app.use(express.static("./public"))
 app.use(express.json());
 app.use(cors({
-    origin: ["http://localhost:3000"],
+    origin: ["http://localhost:3000","http://localhost"],
     methods: ["GET", "POST"],
     credentials: true
 }));
@@ -294,13 +294,69 @@ app.get("/getPostById", (req, res) => {
 app.get("/getUserPosts", (req, res) => {
     const author = req.query.author;
 
-    db.query("SELECT posts.*, users.fullname FROM posts INNER JOIN users ON users.id=posts.author WHERE posts.author=? ORDER BY posts.id DESC", [author], (err, result) => {
+    db.query("SELECT posts.*, users.fullname, users.profile_pic FROM posts INNER JOIN users ON users.id=posts.author WHERE posts.author=? ORDER BY posts.id DESC", [author], (err, result) => {
         if (!err) {
-            res.send(result);
+            const ele = result[0]
+            if (ele) {
+                db.query("SELECT COUNT(*) as cnt FROM `likes` WHERE type='Post' AND typeId=?", [ele.id], (err1, result1) => {
+                    if (!err1) {
+                        if (result1.length > 0) {
+                            result[0].likePostCount = result1[0].cnt;
+                        }
+                    } else {
+                        console.log(err1)
+                    }
+                })
+                db.query("SELECT * FROM likes WHERE type='Post' AND typeId=? AND likedById=?", [ele.id, author], (err2, result2) => {
+                    if (!err2) {
+                        if (result2.length > 0) {
+                            result[0].likePostStatus = true
+                        }
+                    } else {
+                        console.log(err2)
+                    }
+                })
+
+                db.query("SELECT comments.*,users.fullname,users.profile_pic FROM comments INNER JOIN users ON users.id=comments.commentedBy WHERE postId=?", [ele.id], (err2, result2) => {
+                    if (!err2) {
+                        result[0].comments = result2
+
+                        // Status of Coment Like And Count of Comment
+                        if (result2.length > 0) {
+                            result2.map((comment, j, row1) => {
+                                db.query("SELECT COUNT(*) as cnt FROM `likes` WHERE type='Comment' AND typeId=?", [comment.id], (err4, result4) => {
+                                    if (!err4) {
+                                        if (result4.length > 0) {
+                                            result[0].comments[j].likeCommentCount = result4[0].cnt;
+                                        }
+                                    } else {
+                                        console.log(err4)
+                                    }
+                                })
+                                db.query("SELECT * FROM likes WHERE type='Comment' AND typeId=? AND likedById=?", [comment.id, author], (err5, result5) => {
+                                    if (!err5) {
+                                        if (result5.length > 0) {
+                                            result[0].comments[j].likeCommentStatus = true
+                                        }
+                                        if (j + 1 == row1.length) res.send(result)
+                                    } else {
+                                        console.log(err5)
+                                    }
+                                })
+                            })
+                        } else {
+                            res.send(result)
+                        }
+
+                    } else {
+                        console.log(err2)
+                    }
+                })
+            }
         } else {
             res.send(err);
         }
-    });
+    })
 });
 
 app.get("/getPagePosts", (req, res) => {
