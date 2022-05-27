@@ -68,7 +68,7 @@ app.post('/register', (req, res) => {
 });
 
 app.get("/getcolleges", (req, res) => {
-    db.query("SELECT * FROM pages WHERE type=?", ["Educational"], (err, result) => {
+    db.query("SELECT * FROM pages WHERE type=? ORDER BY id DESC", ["Educational"], (err, result) => {
         if (!err) {
             res.send(result);
         } else {
