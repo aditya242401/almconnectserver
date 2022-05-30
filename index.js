@@ -211,6 +211,7 @@ app.get("/getAllPosts", (req, res) => {
                     }
                 })
             })
+            if(result.length<=0) res.send([])
         } else {
             res.send(err);
         }
@@ -296,63 +297,64 @@ app.get("/getUserPosts", (req, res) => {
 
     db.query("SELECT posts.*, users.fullname, users.profile_pic FROM posts INNER JOIN users ON users.id=posts.author WHERE posts.author=? ORDER BY posts.id DESC", [author], (err, result) => {
         if (!err) {
-            const ele = result[0]
-            if (ele) {
-                db.query("SELECT COUNT(*) as cnt FROM `likes` WHERE type='Post' AND typeId=?", [ele.id], (err1, result1) => {
-                    if (!err1) {
-                        if (result1.length > 0) {
-                            result[0].likePostCount = result1[0].cnt;
-                        }
-                    } else {
-                        console.log(err1)
-                    }
-                })
-                db.query("SELECT * FROM likes WHERE type='Post' AND typeId=? AND likedById=?", [ele.id, author], (err2, result2) => {
-                    if (!err2) {
-                        if (result2.length > 0) {
-                            result[0].likePostStatus = true
-                        }
-                    } else {
-                        console.log(err2)
-                    }
-                })
-
-                db.query("SELECT comments.*,users.fullname,users.profile_pic FROM comments INNER JOIN users ON users.id=comments.commentedBy WHERE postId=?", [ele.id], (err2, result2) => {
-                    if (!err2) {
-                        result[0].comments = result2
-
-                        // Status of Coment Like And Count of Comment
-                        if (result2.length > 0) {
-                            result2.map((comment, j, row1) => {
-                                db.query("SELECT COUNT(*) as cnt FROM `likes` WHERE type='Comment' AND typeId=?", [comment.id], (err4, result4) => {
-                                    if (!err4) {
-                                        if (result4.length > 0) {
-                                            result[0].comments[j].likeCommentCount = result4[0].cnt;
-                                        }
-                                    } else {
-                                        console.log(err4)
-                                    }
-                                })
-                                db.query("SELECT * FROM likes WHERE type='Comment' AND typeId=? AND likedById=?", [comment.id, author], (err5, result5) => {
-                                    if (!err5) {
-                                        if (result5.length > 0) {
-                                            result[0].comments[j].likeCommentStatus = true
-                                        }
-                                        if (j + 1 == row1.length) res.send(result)
-                                    } else {
-                                        console.log(err5)
-                                    }
-                                })
-                            })
+            result.map((ele, i, row)=>{
+                if (ele) {
+                    db.query("SELECT COUNT(*) as cnt FROM `likes` WHERE type='Post' AND typeId=?", [ele.id], (err1, result1) => {
+                        if (!err1) {
+                            if (result1.length > 0) {
+                                result[i].likePostCount = result1[0].cnt;
+                            }
                         } else {
-                            res.send(result)
+                            console.log(err1)
                         }
+                    })
+                    db.query("SELECT * FROM likes WHERE type='Post' AND typeId=? AND likedById=?", [ele.id, author], (err2, result2) => {
+                        if (!err2) {
+                            if (result2.length > 0) {
+                                result[i].likePostStatus = true
+                            }
+                        } else {
+                            console.log(err2)
+                        }
+                    })
 
-                    } else {
-                        console.log(err2)
-                    }
-                })
-            }
+                    db.query("SELECT comments.*,users.fullname,users.profile_pic FROM comments INNER JOIN users ON users.id=comments.commentedBy WHERE postId=?", [ele.id], (err2, result2) => {
+                        if (!err2) {
+                            result[i].comments = result2
+
+                            // Status of Coment Like And Count of Comment
+                            if (result2.length > 0) {
+                                result2.map((comment, j, row1) => {
+                                    db.query("SELECT COUNT(*) as cnt FROM `likes` WHERE type='Comment' AND typeId=?", [comment.id], (err4, result4) => {
+                                        if (!err4) {
+                                            if (result4.length > 0) {
+                                                result[i].comments[j].likeCommentCount = result4[0].cnt;
+                                            }
+                                        } else {
+                                            console.log(err4)
+                                        }
+                                    })
+                                    db.query("SELECT * FROM likes WHERE type='Comment' AND typeId=? AND likedById=?", [comment.id, author], (err5, result5) => {
+                                        if (!err5) {
+                                            if (result5.length > 0) {
+                                                result[i].comments[j].likeCommentStatus = true
+                                            }
+                                            if (i + 1 == row.length && j + 1 == row1.length) res.send(result)
+                                        } else {
+                                            console.log(err5)
+                                        }
+                                    })
+                                })
+                            } else {
+                                if (i + 1 == row.length) res.send(result)
+                            }
+
+                        } else {
+                            console.log(err2)
+                        }
+                    })
+                }
+            })
         } else {
             res.send(err);
         }
@@ -445,6 +447,23 @@ app.post("/uploadProfile", (req, res) => {
         }
     });
 });
+
+app.post("/uploadProfileDetails", (req, res) => {
+    const loginid = req.body.loginid;
+    const fullname = req.body.fullname;
+    const aboutu = req.body.aboutu;
+    const hobbies = req.body.hobbies;
+
+    db.query("UPDATE users SET fullname=?, aboutu=?, hobbies=? WHERE id=?", [fullname, aboutu, hobbies, loginid], (err, result) => {
+        if (!err) {
+            res.send({ message: "Profile Details Updated Successfully."});
+        } else {
+            res.send({ message: "Error" });
+        }
+    })
+});
+
+
 app.post("/addEducation", (req, res) => {
     const userid = req.body.userid;
     const school = req.body.educationDetail.school;
